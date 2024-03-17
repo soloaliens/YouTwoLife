@@ -1,0 +1,26 @@
+1,2,3,4,5,6,7,8,9,10,11
+A pair details,,,,Computational table,,,Gender,,,
+Name,Day of Birth,Month of Birth,Year of Birth,Chinese year of Birth,Chinese Day of birth,Chinese Month of Birth,,Energy,Zodiak,Zodiak Element
+Yulia,22,12,1982,1982,25,1,F,Metal,Capricorn,Earth
+Ilya,1,10,1984,1984,2,2,M,Metal,Libra,Air
+Zodiak Calculation,,,,,Zodiak Calculation,,,,,
+Yulia,Month,12,,,Ilya,Month,10,,,
+,Day,22,,,,Day,1,,,
+,To Date,20,1,,,To Date,24,11,,
+,Zodiak Month,12,,,,Zodiak Month,9,,,
+,Zodiak Sign,Capricorn,,,,Zodiak Sign,Libra,,,
+,Element,Earth,,,,Element,Air,,,
+Wich columns to use for Zodiak,,,,,,,,,,
+7,8,,,,,,,,,
+How,Capricorn,is compatable with,,Libra,,,,,,
+Zodiak Compatability,,,,80,,,,,,
+Description,"A good match, a solid four out of five. Genes will help you establish a wonderful relationship.",,,,,,,,,
+Wich columns to use for Feng Shui,,,,,,,,,,
+2,3,,,,,,,,,
+How,Metal,compatiable with,,Metal,,,,,,
+Energy compatability,,,,50,,,,,,
+Description,The energies around you may nourish one person but can drain the other. This will have to be compensated for with rest or by changing the couple's living environment to restore energy.,,,,,,,,,
+Feng Shui and Zodiak together,,,,,,,,,,
+Zodiak,40,,,,,,,,,
+Feng Shui,50,,,,,,,,,
+Compatability in %,,,60,,,,,,,
