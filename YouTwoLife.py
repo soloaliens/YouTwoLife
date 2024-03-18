@@ -1,4 +1,22 @@
 # %%
+# docker build --no-cache --build-arg GITHUB_PAT=[ADD_FROM_ENV] -t youtwolife .
+
+# docker run -p 8000:8000  --env-file .env youtwolife
+
+
+
+# curl -X POST "http://localhost:8000/api/match" \
+#      -H "Content-Type: application/json" \
+#      -H "X-API-KEY: -DuBmREMDW79gZrjXaXb-otLYjtk3pY38m19wjwcJA8" \
+#      -d '{"birth_date1": "22-12-1982", "birth_date2": "01-10-1984", "gender1": "F", "gender2": "M"}'
+
+# curl -X POST "http://localhost:8000/api/list" \ 
+#      -H "Content-Type: application/json" \
+#      -H "X-API-KEY: -DuBmREMDW79gZrjXaXb-otLYjtk3pY38m19wjwcJA8" \
+#      -d '{"birth_date1": "22-12-1982", "gender1": "F"}'
+
+
+# %%
 import pandas as pd   
 import datetime  
 from fastapi import FastAPI, HTTPException, Depends
@@ -15,9 +33,6 @@ import uvicorn
 
 
 no_years = 15
-
-# %%
-
 
 # %%
                                                                                                       
