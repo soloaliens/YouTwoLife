@@ -1,19 +1,29 @@
 # %%
-# docker build --no-cache --build-arg GITHUB_PAT=[ADD_FROM_ENV] -t youtwolife .
+# docker buildx create --name mybuilder --use
+# docker buildx build --platform linux/amd64 -t gcr.io/youtwolife/youtwolife . --push
 
-# docker run -p 8000:8000  --env-file .env youtwolife
+# gcloud run deploy youtwolife --image gcr.io/youtwolife/youtwolife --platform managed --allow-unauthenticated --set-env-vars=GITHUB_PAT=[GITHUB],API_KEY=[API],API_KEY_NAME=[API KEY]  --port=8000
 
 
-
-# curl -X POST "http://localhost:8000/api/match" \
+# curl -X POST "https://youtwolife-od3gon4pca-df.a.run.app/api/match" \
 #      -H "Content-Type: application/json" \
-#      -H "X-API-KEY: -DuBmREMDW79gZrjXaXb-otLYjtk3pY38m19wjwcJA8" \
+#      -H "X-API-KEY: [API]" \
 #      -d '{"birth_date1": "22-12-1982", "birth_date2": "01-10-1984", "gender1": "F", "gender2": "M"}'
 
-# curl -X POST "http://localhost:8000/api/list" \ 
+# curl -X POST "https://youtwolife-od3gon4pca-df.a.run.app/api/list" \
 #      -H "Content-Type: application/json" \
-#      -H "X-API-KEY: -DuBmREMDW79gZrjXaXb-otLYjtk3pY38m19wjwcJA8" \
+#      -H "X-API-KEY: [API]" \
 #      -d '{"birth_date1": "22-12-1982", "gender1": "F"}'
+
+
+# curl -X POST "http://0.0.0.0:8000/api/match" \
+#      -H "Content-Type: application/json" \
+#      -H "X-API-KEY: [API]" \
+#      -d '{"birth_date1": "22-12-1982", "birth_date2": "01-10-1984", "gender1": "F", "gender2": "M", "email": "adrianstuart@gmail.com", "name_first": "adrian" , "name_second" : "stuart"}'
+
+# curl -X POST "http://localhost:8000/api/list"  -H "Content-Type: application/json" -H "X-API-KEY: [API]" -d '{"birth_date1": "22-12-1982", "gender1": "M","email":"adrianstuart@gmail.com", "name_first" : "adrian", "name_second" : "stuart" }'     
+
+# curl -X POST "http://localhost:8000/api/list"  -H "Content-Type: application/json" -H "X-API-KEY: [API]" -d '{"birth_date1": "22-12-1982", "gender1": "F"}'
 
 
 # %%
@@ -30,9 +40,22 @@ from dotenv import load_dotenv
 import os 
 from datetime import date
 import uvicorn
+from fastapi import FastAPI, Request, HTTPException, Depends
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.util import get_remote_address
+from slowapi.errors import RateLimitExceeded
+from pydantic import BaseModel, Field, validator
+from typing import List
+import os
+from dotenv import load_dotenv
+from fastapi.security.api_key import APIKeyHeader
+from datetime import date
+import uvicorn
 
 
 no_years = 15
+gmail_user = 'lifeyoutwo@gmail.com'
+gmail_password = 'loro lcvg milu bpyv'
 
 # %%
                                                                                                       
@@ -361,12 +384,113 @@ def get_100_percent_feng_shui_compatibility(energy1):
     return comp_df.columns[comp_df.eq(100).any()].to_list()
 
 def get_fung_shui_energy_years(feng_shui_energy_copatable_list, gender1):
-    energy_years_df = pd.read_csv(f"Energy by Years of Birth_{gender1}.csv", skiprows=2)
-
+    # energy_years_df = pd.read_csv(f"Energy by Years of Birth_{gender1}.csv", skiprows=2)
     energy_years_df = pd.read_csv(f"Energy by Years of Birth_{gender1}.csv", skiprows=3)
-    all_years = energy_years_df[energy_years_df['Element'] ==feng_shui_energy_copatable_list[0] ]['Women\t'].to_list()
+    energy_years_df = energy_years_df.rename(columns={energy_years_df.columns[0]: 'year'})
+    all_years = energy_years_df[energy_years_df['Element'] ==feng_shui_energy_copatable_list[0] ]['year'].to_list()
     all_years = [int(year) for year in all_years ]
     return all_years
+
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
+
+def format_date_ranges(date_ranges):
+    formatted_dates = []
+    for start, end in date_ranges:
+        formatted_start = f"{start[0]:02d}-{start[1]:02d}"
+        formatted_end = f"{end[0]:02d}-{end[1]:02d}"
+        formatted_dates.append(f"{formatted_start} to {formatted_end}")
+    return ', '.join(formatted_dates)
+
+def format_years(years):
+    return ', '.join(sorted(map(str, years)))
+
+def send_html_email(email, name_first, name_second, birth_date1, gender1, zodiac_sign1, zodiac_compatable_dates, energy1, fung_shui_energy_compatable_years):
+
+    # Format the date ranges and years for HTML
+    formatted_date_ranges = format_date_ranges(zodiac_compatable_dates)
+    formatted_years = format_years(fung_shui_energy_compatable_years)
+    if gender1 == 'M':
+        gender1 = 'Male'
+    else:
+        gender1 = 'Female'
+
+    # Create message container
+    msg = MIMEMultipart('alternative')
+    msg['Subject'] = "Your Compatibility Report"
+    msg['From'] = gmail_user
+    msg['To'] = email
+    
+    # Create the body of the message (HTML version).
+    html = f"""\
+    <html>
+      <head>
+        <style>
+            body {{
+                font-family: Arial, sans-serif;
+                line-height: 1.6;
+                color: #333;
+            }}
+            .container {{
+                max-width: 600px;
+                margin: 20px auto;
+                padding: 20px;
+                border: 1px solid #ddd;
+                border-radius: 5px;
+            }}
+            h1 {{
+                color: #444;
+            }}
+            .section {{
+                margin-bottom: 20px;
+            }}
+            .highlight {{
+                color: #D35400;
+            }}
+        </style>
+      </head>
+      <body>
+        <div class="container">
+            <h1>Compatibility Report</h1>
+            <div class="section">
+                <p>Hi {name_first},</p>
+                <p>Here is your compatibility report for birth date of {birth_date1} and {gender1}.</p>
+            </div>
+            <div class="section">
+                <p>Your Zodiac sign is <span class="highlight">{zodiac_sign1}</span>.</p>
+                <p>Compatible Zodiac date ranges:</p>
+                <p>{formatted_date_ranges}</p>
+            </div>
+            <div class="section">
+                <p>Your Feng Shui energy is <span class="highlight">{energy1}</span>.</p>
+                <p>Compatible Feng Shui energy years:</p>
+                <p>{formatted_years}</p>
+            </div>
+            <div class="section">
+                <p>Thank you for using YouTwoLife!</p>
+          
+            </div>
+        </div>
+      </body>
+    </html>
+    """
+        # Record the MIME types.
+    part2 = MIMEText(html, 'html')
+    
+    # Attach parts into message container.
+    msg.attach(part2)
+    
+    # Send the message via local SMTP server.
+    try:
+        with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
+            server.login(gmail_user, gmail_password)
+            server.sendmail(gmail_user, email, msg.as_string())
+            print("Email sent successfully!")
+    except Exception as e:
+        print(f"Failed to send email: {e}")
+
+
 
 # %%
 # import json
@@ -482,6 +606,11 @@ API_KEY = os.getenv("API_KEY")
 
 # Placeholder for your actual API key
 
+# Setup rate limiter
+limiter = Limiter(key_func=get_remote_address)
+app.state.limiter = limiter
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
 API_KEY_NAME = os.getenv("API_KEY_NAME")
 api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=True)
 
@@ -499,6 +628,12 @@ class MatchRequest(BaseModel):
     birth_date2: str = Field(..., example="01-10-1984", pattern=r"^\d{2}-\d{2}-\d{4}$")
     gender1: str = Field(..., pattern="^[FM]$", example="F")
     gender2: str = Field(..., pattern="^[FM]$", example="M")
+    #check the name variable is safe
+    name_first: str = Field(..., example="John", max_length=50)
+    name_second: str = Field(..., example="Jane", max_length=50)
+    #check email is valid
+    email: str = Field(..., example="john@gmail.com", max_length=50)
+    
 
     @validator('birth_date1', 'birth_date2')
     def validate_date(cls, v):
@@ -509,10 +644,28 @@ class MatchRequest(BaseModel):
         except ValueError:
             raise ValueError('Invalid date format, should be DD-MM-YYYY')
         
+    @validator('email')
+    def validate_email(cls, v):
+        if "@" not in v:
+            raise ValueError('Invalid email format')
+        return v
+    
+    @validator('name_first', 'name_second')
+    def validate_name(cls, v):
+        if not v.isalpha():
+            raise ValueError('Name should only contain alphabets')
+        return v
+        
 class ListRequest(BaseModel):
     birth_date1: str = Field(..., example="22-12-1982", pattern=r"^\d{2}-\d{2}-\d{4}$")
     gender1: str = Field(..., pattern="^[FM]$", example="F")
 
+    #check the name variable is safe
+    name_first: str = Field(..., example="John", max_length=50)
+    name_second: str = Field(..., example="Jane", max_length=50)
+    #check email is valid
+    email: str = Field(..., example="john@gmail.com", max_length=50)
+    
     @validator('birth_date1')
     def validate_date(cls, v):
         try:
@@ -521,15 +674,31 @@ class ListRequest(BaseModel):
             return v
         except ValueError:
             raise ValueError('Invalid date format, should be DD-MM-YYYY')
+        
+    @validator('email')
+    def validate_email(cls, v):
+        if "@" not in v:
+            raise ValueError('Invalid email format')
+        return v
+    
+    @validator('name_first', 'name_second')
+    def validate_name(cls, v):
+        if not v.isalpha():
+            raise ValueError('Name should only contain alphabets')
+        return v
 
 
 
 # API endpoint
 @app.post("/api/match")
-async def compatibility_api(request: MatchRequest, api_key: str = Depends(get_api_key)):
+@limiter.limit("60/minute")  # Adjust the rate limit as needed
+# async def compatibility_api(request: MatchRequest, api_key: str = Depends(get_api_key)):
+async def compatibility_api(request: Request, match_request: MatchRequest, api_key: str = Depends(get_api_key)):
+
+
     # Extract day, month, and year from birth dates
-    day1, month1, year1 = map(int, request.birth_date1.split('-'))
-    day2, month2, year2 = map(int, request.birth_date2.split('-'))
+    day1, month1, year1 = map(int, match_request.birth_date1.split('-'))
+    day2, month2, year2 = map(int, match_request.birth_date2.split('-'))
 
     # Convert the Gregorian dates to Lunar dates
     lunar_day1, lunar_month1, lunar_year1 = convert_to_chinese_birthday(date(year1, month1, day1))
@@ -542,8 +711,8 @@ async def compatibility_api(request: MatchRequest, api_key: str = Depends(get_ap
     element2 = calculate_zodiac_sign(lunar_day2, lunar_month2, 'Element')
 
     # Compute Feng Shui energies
-    energy1 = calculate_feng_shui_energy(lunar_year1, request.gender1)
-    energy2 = calculate_feng_shui_energy(lunar_year2, request.gender2)
+    energy1 = calculate_feng_shui_energy(lunar_year1, match_request.gender1)
+    energy2 = calculate_feng_shui_energy(lunar_year2, match_request.gender2)
 
     # Calculate compatibilities
     zodiac_compatibility_score = calculate_zodiac_compatibility(zodiac_sign1, zodiac_sign2)
@@ -571,15 +740,18 @@ async def compatibility_api(request: MatchRequest, api_key: str = Depends(get_ap
 
 # API endpoint
 @app.post("/api/list")
-async def compatibility_api(request: ListRequest, api_key: str = Depends(get_api_key)):
+@limiter.limit("60/minute")  # Adjust the rate limit as needed
+# async def compatibility_api(request: ListRequest, api_key: str = Depends(get_api_key)):
+async def list_api(request: Request, list_request: ListRequest, api_key: str = Depends(get_api_key)):
+
     # Extract day, month, and year from birth dates
-    day1, month1, year1 = map(int, request.birth_date1.split('-'))
+    day1, month1, year1 = map(int, list_request.birth_date1.split('-'))
     # Convert the Gregorian dates to Lunar dates
     lunar_day1, lunar_month1, lunar_year1 = convert_to_chinese_birthday(date(year1, month1, day1))
     # Calculate Zodiac signs and elements
     zodiac_sign1 = calculate_zodiac_sign(day1, month1, 'Sign')
     # element1 = calculate_zodiac_sign(lunar_day1, lunar_month1, 'Element')
-    energy1 = calculate_feng_shui_energy(lunar_year1, request.gender1)
+    energy1 = calculate_feng_shui_energy(lunar_year1, list_request.gender1)
     #crete a function thatl looks up the zodiac sign table and returns only other zodiac signs that have 100% compatibility
     zodiac_copatable_list = get_100_percent_compatibility(zodiac_sign1)
     #function to get the date range of each of the zodiac sign
@@ -587,13 +759,21 @@ async def compatibility_api(request: ListRequest, api_key: str = Depends(get_api
     #crate a function that looks up the feng shui table and returns only other feng shui elements that have 100% compatibility
     feng_shui_energy_copatable_list = get_100_percent_feng_shui_compatibility(energy1)
     #functrion to get all the years that are the same energy
-    fung_shui_energy_compatable_years = get_fung_shui_energy_years(feng_shui_energy_copatable_list, request.gender1)
-    years_in = years_around_birthday(request.birth_date1,no_years)
+    fung_shui_energy_compatable_years = get_fung_shui_energy_years(feng_shui_energy_copatable_list, list_request.gender1)
+    years_in = years_around_birthday(list_request.birth_date1,no_years)
     #only return years that are both in years_in_15 and fung_shui_energy_compatable_years
     years_in = set(years_in)
     fung_shui_energy_compatable_years = set(fung_shui_energy_compatable_years)
     years_in = years_in.intersection(fung_shui_energy_compatable_years)
-    years_in = list(years_in)
+    fung_shui_energy_compatable_years = list(years_in)
+    #function to store the data in a csv. email should be the index
+    def store_data(email, name_first, name_second, birth_date1, gender1, zodiac_sign1, zodiac_compatable_dates, energy1, fung_shui_energy_compatable_years):
+        #store the data in a csv
+        data = pd.DataFrame({'email': [email],'name_first': [name_first], 'name_second': [name_second], 'birth_date1': [list_request.birth_date1], 'gender1': [gender1], 'zodiac_sign1': [zodiac_sign1], 'zodiac_compatable_dates': [zodiac_compatable_dates], 'energy1': [energy1], 'fung_shui_energy_compatable_years': [fung_shui_energy_compatable_years]})
+        data.to_csv('data.csv', mode='a', header=False)
+        return "Data has been stored"
+    store_data(list_request.email, list_request.name_first, list_request.name_second, list_request.birth_date1, list_request.gender1, zodiac_sign1, zodiac_compatable_dates, energy1, fung_shui_energy_compatable_years)
+    send_html_email(list_request.email, list_request.name_first, list_request.name_second, list_request.birth_date1, list_request.gender1, zodiac_sign1, zodiac_compatable_dates, energy1, fung_shui_energy_compatable_years)
     return {"zodiac_compatable_dates": zodiac_compatable_dates, "fung_shui_energy_compatable_years": years_in}
 
 
@@ -622,6 +802,15 @@ if __name__ == "__main__":
 
 # %%
 
+
+
+# %%
+
+
+# %%
+
+
+# %%
 
 
 # %%

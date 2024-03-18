@@ -16,5 +16,10 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Make port 8000 available to the world outside this container
 EXPOSE 8000
 
+ARG API_KEY
+ARG API_KEY_NAME
+ENV API_KEY=$API_KEY
+ENV API_KEY_NAME=$API_KEY_NAME
+
 # Run YouTwoLife.py when the container launches
 CMD ["python", "./YouTwoLife.py"]
