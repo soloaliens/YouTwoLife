@@ -1,5 +1,24 @@
 # %%
-import pandas as pd                                                                                                           
+import pandas as pd   
+import datetime  
+from fastapi import FastAPI, HTTPException, Depends
+from fastapi.security.api_key import APIKeyHeader
+from pydantic import BaseModel, Field, validator
+from typing import List, Dict
+import json
+from datetime import date
+from pydantic import BaseModel, Field, validator
+from datetime import date
+from dotenv import load_dotenv
+import os 
+from datetime import date
+import uvicorn
+from threading import Thread
+
+no_years = 15
+
+# %%
+                                                                                                      
                                                                                                                                     
 def calculate_zodiac_sign(day: int, month: int, type_zodiac: str) -> str:                                                                              
     # Load the Zodiac dates from the CSV file                                                                                        
@@ -209,7 +228,7 @@ def get_feng_shui_compatibility_description(score):
 # print(f"For a Feng Shui compatibility score of {score_example}, the description is: '{description_output}'") 
 
 # %%
-from datetime import date
+
 
 
 
@@ -253,6 +272,84 @@ def convert_to_chinese_birthday(birth_date):
 # adjusted_year = convert_to_chinese_birthday(birth_date)
 # print(f"Adjusted Year: {adjusted_year}")
 
+
+# %%
+
+def years_around_birthday(dob_str,years):
+    """
+    Returns a list of years within a ±15-year range of the birth year,
+    excluding years that would make someone under 18.
+    
+    :param dob_str: Date of birth as a string in "YYYY-MM-DD" format.
+    :param years: The range of years to consider.
+    :return: List of years.
+    """
+    # Convert the string to a datetime object
+    dob = datetime.datetime.strptime(dob_str, "%d-%m-%Y")
+    
+    # Extract the birth year
+    birth_year = dob.year
+    
+    # Calculate the current year
+    current_year = datetime.datetime.now().year
+    
+    # Calculate the age
+    age = current_year - birth_year
+    
+    # Initialize the list of years
+    years_list = []
+    
+    # Calculate the start and end year for the ±15 range
+    start_year = birth_year - years
+    end_year = birth_year + years
+    
+    # Loop through each year in the range
+    for year in range(start_year, end_year + 1):
+        # Calculate the hypothetical age for someone born in this year
+        hypothetical_age = current_year - year
+        
+        # Check if the hypothetical age is 18 or more
+        if hypothetical_age >= 18:
+            years_list.append(year)
+    
+    return years_list
+
+def get_100_percent_compatibility(zodiac_sign1):
+    # Load the Zodiac compatibility data
+    comp_df = pd.read_csv("Table of Zodiac compatibility.csv", header=1, index_col=0)
+    # Retrieve the compatibility score for the two energy types
+    comp_df = comp_df[comp_df[zodiac_sign1] == 100]
+    #get the index names in a list
+    return comp_df.index.tolist()
+
+def get_zodiac_date_range(zodiac_copatable_list):
+    list_dates = []
+    for zodiac_sign in zodiac_copatable_list:
+        zodiac_dates_df = pd.read_csv("Dates of zodiac.csv", skiprows=2)
+        dates_df = zodiac_dates_df[zodiac_dates_df['Sign'] == zodiac_sign]
+        #convert to a date
+        #change the column names to Month	Day	Month1	Day1	Element	Sign
+        dates_df.columns = [ 'Month','Day'	,'Month1'	,'Day1',	'Element',	'Sign']
+
+        start_date = (int(dates_df.Month.values[0]) , int(dates_df.Day.values[0]))
+        end_date = (int(dates_df.Month1.values[0]) , int(dates_df.Day1.values[0]))
+        list_dates.append( ( start_date, end_date ) )
+
+    return list_dates
+
+def get_100_percent_feng_shui_compatibility(energy1):
+    comp_df = pd.read_csv("Fung Shui energy compatibiltiy.csv", header=1, index_col=0, skiprows=1)
+    comp_df = comp_df[comp_df[energy1] == 100]
+    #show the column name where the value is 100
+    return comp_df.columns[comp_df.eq(100).any()].to_list()
+
+def get_fung_shui_energy_years(feng_shui_energy_copatable_list, gender1):
+    energy_years_df = pd.read_csv(f"Energy by Years of Birth_{gender1}.csv", skiprows=2)
+
+    energy_years_df = pd.read_csv(f"Energy by Years of Birth_{gender1}.csv", skiprows=3)
+    all_years = energy_years_df[energy_years_df['Element'] ==feng_shui_energy_copatable_list[0] ]['Women\t'].to_list()
+    all_years = [int(year) for year in all_years ]
+    return all_years
 
 # %%
 # import json
@@ -357,20 +454,12 @@ def convert_to_chinese_birthday(birth_date):
 
 
 # %%
-from fastapi import FastAPI, HTTPException, Depends
-from fastapi.security.api_key import APIKeyHeader
-from pydantic import BaseModel, Field, validator
-from typing import List, Dict
-import json
-from datetime import date
-from pydantic import BaseModel, Field, validator
-from datetime import date
+
 
 app = FastAPI()
 
 #get the API_KEY from the .env file
-from dotenv import load_dotenv
-import os
+
 load_dotenv()
 API_KEY = os.getenv("API_KEY")
 
@@ -388,7 +477,7 @@ async def get_api_key(api_key_header: str = Depends(api_key_header)):
 
 
 
-class CompatibilityRequest(BaseModel):
+class MatchRequest(BaseModel):
     birth_date1: str = Field(..., example="22-12-1982", pattern=r"^\d{2}-\d{2}-\d{4}$")
     birth_date2: str = Field(..., example="01-10-1984", pattern=r"^\d{2}-\d{2}-\d{4}$")
     gender1: str = Field(..., pattern="^[FM]$", example="F")
@@ -402,12 +491,25 @@ class CompatibilityRequest(BaseModel):
             return v
         except ValueError:
             raise ValueError('Invalid date format, should be DD-MM-YYYY')
+        
+class ListRequest(BaseModel):
+    birth_date1: str = Field(..., example="22-12-1982", pattern=r"^\d{2}-\d{2}-\d{4}$")
+    gender1: str = Field(..., pattern="^[FM]$", example="F")
+
+    @validator('birth_date1')
+    def validate_date(cls, v):
+        try:
+            day, month, year = map(int, v.split('-'))
+            date(year, month, day)  # This will raise an error if the date is not valid
+            return v
+        except ValueError:
+            raise ValueError('Invalid date format, should be DD-MM-YYYY')
 
 
 
 # API endpoint
-@app.post("/api/compatibility")
-async def compatibility_api(request: CompatibilityRequest, api_key: str = Depends(get_api_key)):
+@app.post("/api/match")
+async def compatibility_api(request: MatchRequest, api_key: str = Depends(get_api_key)):
     # Extract day, month, and year from birth dates
     day1, month1, year1 = map(int, request.birth_date1.split('-'))
     day2, month2, year2 = map(int, request.birth_date2.split('-'))
@@ -450,21 +552,66 @@ async def compatibility_api(request: CompatibilityRequest, api_key: str = Depend
 
     return report
 
+# API endpoint
+@app.post("/api/list")
+async def compatibility_api(request: ListRequest, api_key: str = Depends(get_api_key)):
+    # Extract day, month, and year from birth dates
+    day1, month1, year1 = map(int, request.birth_date1.split('-'))
+    # Convert the Gregorian dates to Lunar dates
+    lunar_day1, lunar_month1, lunar_year1 = convert_to_chinese_birthday(date(year1, month1, day1))
+    # Calculate Zodiac signs and elements
+    zodiac_sign1 = calculate_zodiac_sign(day1, month1, 'Sign')
+    # element1 = calculate_zodiac_sign(lunar_day1, lunar_month1, 'Element')
+    energy1 = calculate_feng_shui_energy(lunar_year1, request.gender1)
+    #crete a function thatl looks up the zodiac sign table and returns only other zodiac signs that have 100% compatibility
+    zodiac_copatable_list = get_100_percent_compatibility(zodiac_sign1)
+    #function to get the date range of each of the zodiac sign
+    zodiac_compatable_dates = get_zodiac_date_range(zodiac_copatable_list)
+    #crate a function that looks up the feng shui table and returns only other feng shui elements that have 100% compatibility
+    feng_shui_energy_copatable_list = get_100_percent_feng_shui_compatibility(energy1)
+    #functrion to get all the years that are the same energy
+    fung_shui_energy_compatable_years = get_fung_shui_energy_years(feng_shui_energy_copatable_list, request.gender1)
+    years_in = years_around_birthday(request.birth_date1,no_years)
+    #only return years that are both in years_in_15 and fung_shui_energy_compatable_years
+    years_in = set(years_in)
+    fung_shui_energy_compatable_years = set(fung_shui_energy_compatable_years)
+    years_in = years_in.intersection(fung_shui_energy_compatable_years)
+    years_in = list(years_in)
+    return {"zodiac_compatable_dates": zodiac_compatable_dates, "fung_shui_energy_compatable_years": years_in}
+
+
+
+
+
 # Run the application
 if __name__ == "__main__":
-    import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
 
 
-import uvicorn
-from threading import Thread
 
-def run_server():
-    uvicorn.run("your_app:app", host="0.0.0.0", port=8000, log_level="info")
 
-if __name__ == "__main__":
-    server_thread = Thread(target=run_server)
-    server_thread.start()
+# def run_server():
+#     uvicorn.run("your_app:app", host="0.0.0.0", port=8000, log_level="info")
+
+# if __name__ == "__main__":
+#     server_thread = Thread(target=run_server)
+#     server_thread.start()
+
+# %%
+
+
+# %%
+
+
+# %%
+
+
+
+# %%
+
+
+# %%
+
 
 # %%
 
