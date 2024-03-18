@@ -5,7 +5,6 @@ from fastapi import FastAPI, HTTPException, Depends
 from fastapi.security.api_key import APIKeyHeader
 from pydantic import BaseModel, Field, validator
 from typing import List, Dict
-import json
 from datetime import date
 from pydantic import BaseModel, Field, validator
 from datetime import date
@@ -13,9 +12,12 @@ from dotenv import load_dotenv
 import os 
 from datetime import date
 import uvicorn
-from threading import Thread
+
 
 no_years = 15
+
+# %%
+
 
 # %%
                                                                                                       

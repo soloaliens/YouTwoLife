@@ -1,0 +1,8 @@
+pandas==2.2.1
+fastapi==0.110.0
+pydantic==2.6.4
+python-dotenv==1.0.1
+uvicorn==0.2.13
+typing_extensions==4.10.0
+os
+datetime
