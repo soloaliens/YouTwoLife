@@ -51,11 +51,15 @@ from dotenv import load_dotenv
 from fastapi.security.api_key import APIKeyHeader
 from datetime import date
 import uvicorn
+import smtplib
+from email.mime.multipart import MIMEMultipart
+from email.mime.text import MIMEText
 
 
 no_years = 15
 gmail_user = 'lifeyoutwo@gmail.com'
 gmail_password = 'loro lcvg milu bpyv'
+google_sheets_api_file = 'YouTwoLife_google_sheeets_key/youtwolife-od3gon4pca-df.json'
 
 # %%
                                                                                                       
@@ -391,6 +395,7 @@ def get_fung_shui_energy_years(feng_shui_energy_copatable_list, gender1):
     all_years = [int(year) for year in all_years ]
     return all_years
 
+
 import smtplib
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
@@ -406,75 +411,148 @@ def format_date_ranges(date_ranges):
 def format_years(years):
     return ', '.join(sorted(map(str, years)))
 
-def send_html_email(email, name_first, name_second, birth_date1, gender1, zodiac_sign1, zodiac_compatable_dates, energy1, fung_shui_energy_compatable_years):
+def send_html_email(data,type):
+    #if teh type is list then the data contains email, name_first, name_second, birth_date1, gender1, zodiac_sign1, zodiac_compatable_dates, energy1, fung_shui_energy_compatable_years
+    
+    #if the type is match then the data contains email, name_first, name_second, birth_date1, birth_date2, gender1, gender2, zodiac_sign1, zodiac_sign2, zodiac_compatibility_score,zodiac_description, energy1, energy2, feng_shui_compatibility_score, feng_shui_description, overall_score
 
-    # Format the date ranges and years for HTML
-    formatted_date_ranges = format_date_ranges(zodiac_compatable_dates)
-    formatted_years = format_years(fung_shui_energy_compatable_years)
-    if gender1 == 'M':
-        gender1 = 'Male'
+    if data['gender1'] == 'M':
+        data['gender1'] = 'Male'
     else:
-        gender1 = 'Female'
-
+        data['gender1'] = 'Female'
     # Create message container
     msg = MIMEMultipart('alternative')
-    msg['Subject'] = "Your Compatibility Report"
+    if type =='list':
+        msg['Subject'] = "Your Compatibility List"
+        # Format the date ranges and years for HTML
+        formatted_date_ranges = format_date_ranges(data['zodiac_compatable_dates'])
+        formatted_years = format_years(data['fung_shui_energy_compatable_years'])
+    elif type == 'match':
+        msg['Subject'] = "Your Compatibility Report"
+        if data['gender2'] == 'M':
+            data['gender2'] = 'Male'
+        else:
+            data['gender2'] = 'Female'
+
     msg['From'] = gmail_user
-    msg['To'] = email
+    msg['To'] = data['email']
+
+    #capitolise the fist name 
+    data['name_first'] = data['name_first'].capitalize()
     
     # Create the body of the message (HTML version).
-    html = f"""\
-    <html>
-      <head>
-        <style>
-            body {{
-                font-family: Arial, sans-serif;
-                line-height: 1.6;
-                color: #333;
-            }}
-            .container {{
-                max-width: 600px;
-                margin: 20px auto;
-                padding: 20px;
-                border: 1px solid #ddd;
-                border-radius: 5px;
-            }}
-            h1 {{
-                color: #444;
-            }}
-            .section {{
-                margin-bottom: 20px;
-            }}
-            .highlight {{
-                color: #D35400;
-            }}
-        </style>
-      </head>
-      <body>
-        <div class="container">
-            <h1>Compatibility Report</h1>
-            <div class="section">
-                <p>Hi {name_first},</p>
-                <p>Here is your compatibility report for birth date of {birth_date1} and {gender1}.</p>
+    if type == 'list':
+        html = f"""\
+        <html>
+        <head>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    line-height: 1.6;
+                    color: #333;
+                }}
+                .container {{
+                    max-width: 600px;
+                    margin: 20px auto;
+                    padding: 20px;
+                    border: 1px solid #ddd;
+                    border-radius: 5px;
+                }}
+                h1 {{
+                    color: #444;
+                }}
+                .section {{
+                    margin-bottom: 20px;
+                }}
+                .highlight {{
+                    color: #D35400;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>Compatibility Report</h1>
+                <div class="section">
+                    <p>Hi {data['name_first']},</p>
+                    <p>Here is your compatibility report for birth date of {data['birth_date1']} and {data['gender1']}.</p>
+                </div>
+                <div class="section">
+                    <p>Your Zodiac sign is <span class="highlight">{data['zodiac_sign1']}</span>.</p>
+                    <p>Compatible Zodiac date ranges:</p>
+                    <p>{formatted_date_ranges},</p>
+                </div>
+                <div class="section">
+                    <p>Your Feng Shui energy is <span class="highlight">{data['energy1']}</span>.</p>
+                    <p>Compatible Feng Shui energy years:</p>
+                    <p>{formatted_years}</p>
+                </div>
+                <div class="section">
+                    <p>Thank you for using YouTwoLife!</p>
+            
+                </div>
             </div>
-            <div class="section">
-                <p>Your Zodiac sign is <span class="highlight">{zodiac_sign1}</span>.</p>
-                <p>Compatible Zodiac date ranges:</p>
-                <p>{formatted_date_ranges}</p>
+        </body>
+        </html>
+        """
+    elif type == 'match':
+        html = f"""
+        <html>
+        <head>
+            <style>
+                body {{
+                    font-family: Arial, sans-serif;
+                    line-height: 1.6;
+                    color: #333;
+                }}
+                .container {{
+                    max-width: 600px;
+                    margin: 20px auto;
+                    padding: 20px;
+                    border: 1px solid;
+                    border-radius: 5px;
+                }}
+                h1 {{
+                    color: #444;
+                }}
+                .section {{
+                    margin-bottom: 20px;
+                }}
+                .highlight {{
+                    color: #D35400;
+                }}
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>Compatibility Report</h1>
+                <div class="section">
+                    <p>Hi {data['name_first']},</p>
+                    <p>Here is your compatibility report.</p>
+                </div>
+                <div class="section">
+                    <p>Your Zodiac sign is <span class="highlight">{data['zodiac_sign1']}</span>.</p>
+                    <p>Your partner's Zodiac sign is <span class="highlight">{data['zodiac_sign2']}</span>.</p>
+                    <p>Zodiac compatibility score: {data['zodiac_compatibility_score']}%</p>
+                    <p>Zodiac compatibility description: {data['zodiac_description']}</p>
+                </div>
+                <div class="section">
+                    <p>Your Feng Shui energy is <span class="highlight">{data['energy1']}</span>.</p>
+                    <p>Your partner's Feng Shui energy is <span class="highlight">{data['energy2']}</span>.</p>
+                    <p>Feng Shui compatibility score: {data['feng_shui_compatibility_score']}%</p>
+                    <p>Feng Shui compatibility description: {data['feng_shui_description']}</p>
+                </div>
+                <div class="section">
+                    <p>Overall compatibility score: {data['overall_score']}%</p>
+                    <p>Thank you for using YouTwoLife!</p>
+                </div>
             </div>
-            <div class="section">
-                <p>Your Feng Shui energy is <span class="highlight">{energy1}</span>.</p>
-                <p>Compatible Feng Shui energy years:</p>
-                <p>{formatted_years}</p>
-            </div>
-            <div class="section">
-                <p>Thank you for using YouTwoLife!</p>
-          
-            </div>
-        </div>
-      </body>
-    </html>
-    """
+        </body>
+        </html>
+        """
+
+                                                                                                            
+
+
         # Record the MIME types.
     part2 = MIMEText(html, 'html')
     
@@ -485,113 +563,59 @@ def send_html_email(email, name_first, name_second, birth_date1, gender1, zodiac
     try:
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
             server.login(gmail_user, gmail_password)
-            server.sendmail(gmail_user, email, msg.as_string())
+            server.sendmail(gmail_user, data['email'], msg.as_string())
             print("Email sent successfully!")
     except Exception as e:
         print(f"Failed to send email: {e}")
 
+# def store_data(data):
+#     #make sure that any fields in the data that are lists are tunred into string
+#     data = {k: str(v) if isinstance(v, list) else v for k, v in data.items()}
+#     #store the data in a csv
+#     data = pd.DataFrame(data, index=[0])
+#     #add a time stamp
+#     data['time'] = pd.to_datetime('today').strftime("%Y-%m-%d %H:%M:%S")
+#     #store the data in a csv
+#     data.to_csv('data.csv', mode='a', header=False)
+#     return "Data has been stored"
+        
+
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+import pandas as pd
+from datetime import datetime
+
+def store_data(data,sheet_type):
+    # Make sure that any fields in the data that are lists are turned into strings
+    data = {k: ', '.join(v) if isinstance(v, list) else v for k, v in data.items()}
+    
+    # Add a timestamp
+    data['time'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    
+    # Convert data to DataFrame
+    data_df = pd.DataFrame([data])
+    
+    # Authenticate with the Google Sheets API
+    scope = ['https://spreadsheets.google.com/feeds','https://www.googleapis.com/auth/drive']
+    creds = ServiceAccountCredentials.from_json_keyfile_name(google_sheets_api_file, scope)
+    client = gspread.authorize(creds)
+    
+    # Open the Google Sheet
+    sheet = client.open("YouTwoLife_web").worksheet(sheet_type)  # Use the worksheet method
+    
+   
+    
+    # Convert DataFrame to a list of lists and append to the Google Sheet
+    data_list = data_df.values.tolist()
+    sheet.append_rows(data_list)
+    
+    return "Data has been stored in Google Sheets"
 
 
 # %%
-# import json
-# # Function to integrate all components                                                                                               
-# def get_compatibility_report(birth_date1, birth_date2, gender1, gender2):                                                            
-#     # Extract day, month, and year from birth dates                                                                                  
-#     day1, month1, year1 = map(int, birth_date1.split('-'))                                                                           
-#     day2, month2, year2 = map(int, birth_date2.split('-')) 
-#     #print them
-#     print(day1, month1, year1)
-#     print(day2, month2, year2)
 
-#     #convert to int
-#     year1 = int(year1)
-#     year2 = int(year2)
-#     day1 = int(day1)
-#     day2 = int(day2) 
-#     month1 = int(month1)
-#     month2 = int(month2)
-
-#     # Convert the Gregorian dates to Lunar dates
-#     lunar_day1, lunar_month1, lunar_year1 = convert_to_chinese_birthday(date(year1, month1, day1))
-#     lunar_day2, lunar_month2, lunar_year2 = convert_to_chinese_birthday(date(year2, month2, day2))
-
-#     print(lunar_day1, lunar_month1, lunar_year1)
-#     print(lunar_day2, lunar_month2, lunar_year2)
-                                                                                                          
-#     # Calculate Zodiac signs and elements            
-#     print('Zodiac SIGN should be from westebn birthdate')                                                                                
-#     zodiac_sign1  = calculate_zodiac_sign(day1, month1,'Sign')                                                                     
-#     zodiac_sign2  = calculate_zodiac_sign(day2, month2, 'Sign')   
-
-#     print('Zodiac ELEMENT should be from Chinese birthdate')      
-#     element1 = calculate_zodiac_sign(lunar_day1, lunar_month1, 'Element')
-#     element2 = calculate_zodiac_sign(lunar_day2, lunar_month2, 'Element')                                                
-                                                                                                                                    
-#     # Compute Feng Shui energies                                                                                                     
-#     energy1 = calculate_feng_shui_energy(lunar_year1, gender1)                                                                                   
-#     energy2 = calculate_feng_shui_energy(lunar_year2, gender2)                                                                              
-                                                                                                                                    
-#     # Calculate compatibilities (placeholders)                                                                                       
-#     zodiac_compatibility_score =   calculate_zodiac_compatibility(zodiac_sign1, zodiac_sign2)
-#     feng_shui_compatibility_score = calculate_feng_shui_compatibility(energy1, energy2)                                                      
-                                                                                                                
-#     # Get descriptive texts                                                                                                          
-#     zodiac_description = get_zodiac_compatibility_description(zodiac_compatibility_score)                                            
-#     feng_shui_description = get_feng_shui_compatibility_description(feng_shui_compatibility_score)  
-
-#     overall_score = calculate_overall_compatibility(zodiac_compatibility_score, feng_shui_compatibility_score, zodiac_divisor = 2)  
-                                                                                                                                    
-#     # Compile the report                                                                                                             
-#     report = {   
-#         "Zodiac_Signs": [zodiac_sign1, zodiac_sign2],
-#         "Zodiac_Elements": [element1, element2],
-#         "Feng_Shui_Energies": [energy1 ,energy2], 
-#         "Zodiac_Compatibility_Score": zodiac_compatibility_score,                                                                    
-#         "Zodiac_Description": zodiac_description,                                                                                    
-#         "Feng_Shuicompatibility_Score": feng_shui_compatibility_score,                                                               
-#         "Feng_Shui_Description": feng_shui_description  ,
-#         "Overall_Compatibility_Score": overall_score  ,
-
-                                                                                   
-#     }                                                                                                                                
-                                                                                                                                    
-#     return json.dumps(report, indent=4)                                                                                              
-                                                                                                                                    
-# # Example usage                                                                                                                      
-# birth_date1 = "22-12-1982"  # DD-MM-YYYY                                                                                             
-# birth_date2 = "01-10-1984"                                                                                                           
-# gender1 = "F"                                                                                                                   
-# gender2 = "M"                                                                                                                     
-# compatibility_report = get_compatibility_report(birth_date1, birth_date2, gender1, gender2)                                          
-# print(compatibility_report)             
 
 # %%
-# import secrets
-
-# def generate_api_key():
-#     return secrets.token_urlsafe(32)  # Generates a 32-byte (256-bit) secure URL-safe text string
-
-# api_key = generate_api_key()
-# print(api_key)
-
-# import jwt
-# import datetime
-
-# def generate_jwt_token(secret_key):
-#     payload = {
-#         'exp': datetime.datetime.utcnow() + datetime.timedelta(days=0, minutes=5),  # Set the expiry time
-#         'iat': datetime.datetime.utcnow(),  # Issued at time
-#         # 'sub': 'subject',  # Optional: Subject of the token
-#         # Additional claims can be included here as needed
-#     }
-#     token = jwt.encode(payload, secret_key, algorithm='HS256')
-#     return token
-
-# # Usage
-# secret_key = 'your_secret_key'  # This should be kept secret!
-# access_token = generate_jwt_token(secret_key)
-# print(access_token)
-
 
 
 # %%
@@ -606,13 +630,13 @@ API_KEY = os.getenv("API_KEY")
 
 # Placeholder for your actual API key
 
+API_KEY_NAME = os.getenv("API_KEY_NAME")
+api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=True)
+
 # Setup rate limiter
 limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
-
-API_KEY_NAME = os.getenv("API_KEY_NAME")
-api_key_header = APIKeyHeader(name=API_KEY_NAME, auto_error=True)
 
 # Security: API Key Verification
 async def get_api_key(api_key_header: str = Depends(api_key_header)):
@@ -735,6 +759,11 @@ async def compatibility_api(request: Request, match_request: MatchRequest, api_k
         "Feng_Shui_Description": feng_shui_description,
         "Overall_Compatibility_Score": overall_score,
     }
+    #create a dict of all the data top be stored
+    data = {"email": match_request.email, "name_first": match_request.name_first, "name_second": match_request.name_second, "birth_date1": match_request.birth_date1, "birth_date2": match_request.birth_date2, "gender1": match_request.gender1, "gender2": match_request.gender2, "zodiac_sign1": zodiac_sign1, "zodiac_sign2": zodiac_sign2, "zodiac_compatibility_score": zodiac_compatibility_score, "zodiac_description": zodiac_description, "energy1": energy1, "energy2": energy2, "feng_shui_compatibility_score": feng_shui_compatibility_score, "feng_shui_description": feng_shui_description, "overall_score": overall_score}
+    # store_data(data)
+    store_data(data,'match')
+    send_html_email(data,'match')
 
     return report
 
@@ -767,13 +796,11 @@ async def list_api(request: Request, list_request: ListRequest, api_key: str = D
     years_in = years_in.intersection(fung_shui_energy_compatable_years)
     fung_shui_energy_compatable_years = list(years_in)
     #function to store the data in a csv. email should be the index
-    def store_data(email, name_first, name_second, birth_date1, gender1, zodiac_sign1, zodiac_compatable_dates, energy1, fung_shui_energy_compatable_years):
-        #store the data in a csv
-        data = pd.DataFrame({'email': [email],'name_first': [name_first], 'name_second': [name_second], 'birth_date1': [list_request.birth_date1], 'gender1': [gender1], 'zodiac_sign1': [zodiac_sign1], 'zodiac_compatable_dates': [zodiac_compatable_dates], 'energy1': [energy1], 'fung_shui_energy_compatable_years': [fung_shui_energy_compatable_years]})
-        data.to_csv('data.csv', mode='a', header=False)
-        return "Data has been stored"
-    store_data(list_request.email, list_request.name_first, list_request.name_second, list_request.birth_date1, list_request.gender1, zodiac_sign1, zodiac_compatable_dates, energy1, fung_shui_energy_compatable_years)
-    send_html_email(list_request.email, list_request.name_first, list_request.name_second, list_request.birth_date1, list_request.gender1, zodiac_sign1, zodiac_compatable_dates, energy1, fung_shui_energy_compatable_years)
+
+    #create a dict of all the data top be stored 
+    data = {"email": list_request.email, "name_first": list_request.name_first, "name_second": list_request.name_second, "birth_date1": list_request.birth_date1, "gender1": list_request.gender1, "zodiac_sign1": zodiac_sign1, "zodiac_compatable_dates": zodiac_compatable_dates, "energy1": energy1, "fung_shui_energy_compatable_years": fung_shui_energy_compatable_years}
+    store_data(data,'list')
+    send_html_email(data,'list')
     return {"zodiac_compatable_dates": zodiac_compatable_dates, "fung_shui_energy_compatable_years": years_in}
 
 
@@ -802,15 +829,6 @@ if __name__ == "__main__":
 
 # %%
 
-
-
-# %%
-
-
-# %%
-
-
-# %%
 
 
 # %%
