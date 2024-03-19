@@ -1,9 +1,20 @@
 # %%
-# docker buildx create --name mybuilder --use
-# docker buildx build --platform linux/amd64 -t gcr.io/youtwolife/youtwolife . --push
+#docker buildx build --platform linux/amd64 --no-cache -t gcr.io/youtwolife/youtwolife . --push
 
-# gcloud run deploy youtwolife --image gcr.io/youtwolife/youtwolife --platform managed --allow-unauthenticated --set-env-vars=GITHUB_PAT=[GITHUB],API_KEY=[API],API_KEY_NAME=[API KEY]  --port=8000
 
+
+
+
+
+# gcloud run deploy youtwolife --image gcr.io/youtwolife/youtwolife --platform managed --allow-unauthenticated --set-env-vars=GITHUB_PAT=[github],API_KEY=[api],API_KEY_NAME=X-API-KEY --port=8000
+
+
+
+
+# gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=youtwolife" --limit 100 --format 'value(textPayload)'
+
+
+# curl -X POST "https://youtwolife-od3gon4pca-df.a.run.app/api/list"  -H "Content-Type: application/json" -H "X-API-KEY: [API]" -d '{"birth_date1": "22-12-1982", "gender1": "F"}'
 
 # curl -X POST "https://youtwolife-od3gon4pca-df.a.run.app/api/match" \
 #      -H "Content-Type: application/json" \
@@ -60,6 +71,9 @@ no_years = 15
 gmail_user = 'lifeyoutwo@gmail.com'
 gmail_password = 'loro lcvg milu bpyv'
 google_sheets_api_file = 'YouTwoLife_google_sheeets_key/youtwolife-od3gon4pca-df.json'
+
+# %%
+
 
 # %%
                                                                                                       
@@ -586,6 +600,14 @@ import pandas as pd
 from datetime import datetime
 
 def store_data(data,sheet_type):
+    #finction to find the youtwolife-od3gon4pca-df.json file in the current directory and subdirectories
+    def find_file(filename):
+        for root, dirs, files in os.walk("."):
+            if filename in files:
+                return os.path.join(root, filename)
+        return None
+    #find the file
+    google_sheets_api_file = find_file('youtwolife-od3gon4pca-df.json')
     # Make sure that any fields in the data that are lists are turned into strings
     data = {k: ', '.join(v) if isinstance(v, list) else v for k, v in data.items()}
     
@@ -597,8 +619,11 @@ def store_data(data,sheet_type):
     
     # Authenticate with the Google Sheets API
     scope = ['https://spreadsheets.google.com/feeds','https://www.googleapis.com/auth/drive']
-    creds = ServiceAccountCredentials.from_json_keyfile_name(google_sheets_api_file, scope)
-    client = gspread.authorize(creds)
+    try:
+        creds = ServiceAccountCredentials.from_json_keyfile_name(google_sheets_api_file, scope)
+        client = gspread.authorize(creds)
+    except Exception as e:
+        return f"Failed to authenticate with Google Sheets API: {e}"
     
     # Open the Google Sheet
     sheet = client.open("YouTwoLife_web").worksheet(sheet_type)  # Use the worksheet method
@@ -608,6 +633,7 @@ def store_data(data,sheet_type):
     # Convert DataFrame to a list of lists and append to the Google Sheet
     data_list = data_df.values.tolist()
     sheet.append_rows(data_list)
+
     
     return "Data has been stored in Google Sheets"
 
@@ -718,6 +744,7 @@ class ListRequest(BaseModel):
 @limiter.limit("60/minute")  # Adjust the rate limit as needed
 # async def compatibility_api(request: MatchRequest, api_key: str = Depends(get_api_key)):
 async def compatibility_api(request: Request, match_request: MatchRequest, api_key: str = Depends(get_api_key)):
+    print('1640 version')
 
 
     # Extract day, month, and year from birth dates
@@ -762,7 +789,7 @@ async def compatibility_api(request: Request, match_request: MatchRequest, api_k
     #create a dict of all the data top be stored
     data = {"email": match_request.email, "name_first": match_request.name_first, "name_second": match_request.name_second, "birth_date1": match_request.birth_date1, "birth_date2": match_request.birth_date2, "gender1": match_request.gender1, "gender2": match_request.gender2, "zodiac_sign1": zodiac_sign1, "zodiac_sign2": zodiac_sign2, "zodiac_compatibility_score": zodiac_compatibility_score, "zodiac_description": zodiac_description, "energy1": energy1, "energy2": energy2, "feng_shui_compatibility_score": feng_shui_compatibility_score, "feng_shui_description": feng_shui_description, "overall_score": overall_score}
     # store_data(data)
-    store_data(data,'match')
+    print(store_data(data,'match'))
     send_html_email(data,'match')
 
     return report
@@ -799,7 +826,7 @@ async def list_api(request: Request, list_request: ListRequest, api_key: str = D
 
     #create a dict of all the data top be stored 
     data = {"email": list_request.email, "name_first": list_request.name_first, "name_second": list_request.name_second, "birth_date1": list_request.birth_date1, "gender1": list_request.gender1, "zodiac_sign1": zodiac_sign1, "zodiac_compatable_dates": zodiac_compatable_dates, "energy1": energy1, "fung_shui_energy_compatable_years": fung_shui_energy_compatable_years}
-    store_data(data,'list')
+    print(store_data(data,'list'))
     send_html_email(data,'list')
     return {"zodiac_compatable_dates": zodiac_compatable_dates, "fung_shui_energy_compatable_years": years_in}
 
@@ -809,7 +836,9 @@ async def list_api(request: Request, list_request: ListRequest, api_key: str = D
 
 # Run the application
 if __name__ == "__main__":
+    print("Running the app at" , datetime.now())
     uvicorn.run(app, host="0.0.0.0", port=8000)
+    print("Finishe running the app at" , datetime.now())
 
 
 
