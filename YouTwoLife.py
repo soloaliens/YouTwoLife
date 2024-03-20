@@ -38,33 +38,57 @@
 
 
 # %%
-import pandas as pd   
-import datetime  
-from fastapi import FastAPI, HTTPException, Depends
-from fastapi.security.api_key import APIKeyHeader
-from pydantic import BaseModel, Field, validator
-from typing import List, Dict
-from datetime import date
-from pydantic import BaseModel, Field, validator
-from datetime import date
-from dotenv import load_dotenv
-import os 
-from datetime import date
-import uvicorn
-from fastapi import FastAPI, Request, HTTPException, Depends
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
-from slowapi.errors import RateLimitExceeded
-from pydantic import BaseModel, Field, validator
-from typing import List
+# import pandas as pd   
+# import datetime  
+# from fastapi import FastAPI, HTTPException, Depends
+# from fastapi.security.api_key import APIKeyHeader
+# from pydantic import BaseModel, Field, validator
+# from typing import List, Dict
+# from datetime import date
+# from pydantic import BaseModel, Field, validator
+# from datetime import date
+# from dotenv import load_dotenv
+# import os 
+# from datetime import date
+# import uvicorn
+# from fastapi import FastAPI, Request, HTTPException, Depends
+# from slowapi import Limiter, _rate_limit_exceeded_handler
+# from slowapi.util import get_remote_address
+# from slowapi.errors import RateLimitExceeded
+# from pydantic import BaseModel, Field, validator
+# from typing import List
+# import os
+# from dotenv import load_dotenv
+# from fastapi.security.api_key import APIKeyHeader
+# from datetime import date
+# import uvicorn
+# import smtplib
+# from email.mime.multipart import MIMEMultipart
+# from email.mime.text import MIMEText
+# import gspread
+# from oauth2client.service_account import ServiceAccountCredentials
+# import pandas as pd
+
+
+import datetime
 import os
-from dotenv import load_dotenv
-from fastapi.security.api_key import APIKeyHeader
-from datetime import date
-import uvicorn
 import smtplib
+import uvicorn
+from datetime import date
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+
+import gspread
+import pandas as pd
+from dotenv import load_dotenv
+from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi.security.api_key import APIKeyHeader
+from oauth2client.service_account import ServiceAccountCredentials
+from pydantic import BaseModel, Field, validator
+from slowapi import Limiter, _rate_limit_exceeded_handler
+from slowapi.errors import RateLimitExceeded
+from slowapi.util import get_remote_address
+from typing import Dict, List
 
 
 no_years = 15
@@ -594,10 +618,8 @@ def send_html_email(data,type):
 #     return "Data has been stored"
         
 
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
-import pandas as pd
-from datetime import datetime
+
+
 
 def store_data(data,sheet_type):
     #finction to find the youtwolife-od3gon4pca-df.json file in the current directory and subdirectories
@@ -609,10 +631,11 @@ def store_data(data,sheet_type):
     #find the file
     google_sheets_api_file = find_file('youtwolife-od3gon4pca-df.json')
     # Make sure that any fields in the data that are lists are turned into strings
-    data = {k: ', '.join(v) if isinstance(v, list) else v for k, v in data.items()}
+    # data = {k: ', '.join(v) if isinstance(v, list) else v for k, v in data.items()}
+    data = {k: ', '.join(str(item) for item in v) if isinstance(v, list) else v for k, v in data.items()}
     
     # Add a timestamp
-    data['time'] = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    data['time'] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     
     # Convert data to DataFrame
     data_df = pd.DataFrame([data])
@@ -836,9 +859,9 @@ async def list_api(request: Request, list_request: ListRequest, api_key: str = D
 
 # Run the application
 if __name__ == "__main__":
-    print("Running the app at" , datetime.now())
+    print("Running the app at" , datetime.datetime.now())
     uvicorn.run(app, host="0.0.0.0", port=8000)
-    print("Finishe running the app at" , datetime.now())
+    print("Finishe running the app at" , datetime.datetime.now())
 
 
 
