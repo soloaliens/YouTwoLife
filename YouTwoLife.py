@@ -84,7 +84,7 @@ from typing import Dict, List
 no_years = 15
 gmail_user = 'lifeyoutwo@gmail.com'
 gmail_password = 'loro lcvg milu bpyv'
-google_sheets_api_file = 'YouTwoLife_google_sheeets_key/youtwolife-od3gon4pca-df.json'
+google_sheets_api_file =  '/youtwolife_google_sheets_api/YouTwoLife_google_sheeets_key'
 
 # %%
 
@@ -592,9 +592,10 @@ def send_html_email(data,type):
         with smtplib.SMTP_SSL('smtp.gmail.com', 465) as server:
             server.login(gmail_user, gmail_password)
             server.sendmail(gmail_user, data['email'], msg.as_string())
-            print("Email sent successfully!")
+
+            return "Email sent successfully!"
     except Exception as e:
-        print(f"Failed to send email: {e}")
+        return f"Failed to send email: {e}"
 
 # def store_data(data):
 #     #make sure that any fields in the data that are lists are tunred into string
@@ -608,46 +609,47 @@ def send_html_email(data,type):
 #     return "Data has been stored"
         
 
-
+file_found = False
 
 
 def store_data(data,sheet_type):
-    #finction to find the youtwolife-od3gon4pca-df.json file in the current directory and subdirectories
-    def find_file(filename):
-        for root, dirs, files in os.walk("."):
-            if filename in files:
-                return os.path.join(root, filename)
-        return None
-    #find the file
-    google_sheets_api_file = find_file('youtwolife-od3gon4pca-df.json')
+    #function to create an ascii tree of the full file system.
+    def tree(dir, padding, print_files=True):
+        text = "file system tree\n"
+        text = text + f"{padding}+--{os.path.basename(dir)}"
+        padding = padding + "    "
+        files = os.listdir(dir)
+        files.sort()
+        for file in files:
+            if not file.startswith('.'):
+                if os.path.isdir(os.path.join(dir, file)):
+                    tree(os.path.join(dir, file), padding, print_files)
+                else:
+                    if print_files:
+                        text = text + f"{padding}+--{file}"
+        return text
+    
+
     # Make sure that any fields in the data that are lists are turned into strings
     # data = {k: ', '.join(v) if isinstance(v, list) else v for k, v in data.items()}
     data = {k: ', '.join(str(item) for item in v) if isinstance(v, list) else v for k, v in data.items()}
-    
     # Add a timestamp
     data['time'] = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-    
     # Convert data to DataFrame
     data_df = pd.DataFrame([data])
-    
     # Authenticate with the Google Sheets API
     scope = ['https://spreadsheets.google.com/feeds','https://www.googleapis.com/auth/drive']
     try:
         creds = ServiceAccountCredentials.from_json_keyfile_name(google_sheets_api_file, scope)
         client = gspread.authorize(creds)
     except Exception as e:
-        return f"Failed to authenticate with Google Sheets API: {e}"
-    
+        tree_text = tree('/')
+        return f"Failed to authenticate with Google Sheets API: {e}" + str(tree_text)
     # Open the Google Sheet
     sheet = client.open("YouTwoLife_web").worksheet(sheet_type)  # Use the worksheet method
-    
-   
-    
     # Convert DataFrame to a list of lists and append to the Google Sheet
     data_list = data_df.values.tolist()
     sheet.append_rows(data_list)
-
-    
     return "Data has been stored in Google Sheets"
 
 
